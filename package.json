@@ -1,0 +1,50 @@
+{
+  "name": "asphodel",
+  "version": "0.1.0",
+  "description": "Simple local-first memory storage — integer IDs, topic-word index, SQLite + Postgres",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "memory",
+    "ai",
+    "agent",
+    "sqlite",
+    "postgres",
+    "mcp",
+    "asphodel",
+    "elysium"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "better-sqlite3": "^9.6.0"
+  },
+  "peerDependencies": {
+    "pg": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
