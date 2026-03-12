@@ -3,7 +3,7 @@
 Simple local-first memory storage for AI agents. Integer IDs, topic-word index, SQLite and Postgres support.
 
 ```ts
-import { Asphodel, SQLiteAdapter } from 'asphodel'
+import { Asphodel, SQLiteAdapter } from '@saluca/asphodel'
 
 const db = new Asphodel(new SQLiteAdapter())
 await db.init()
@@ -15,7 +15,7 @@ const results = await db.recall("preferences")
 ## Install
 
 ```bash
-npm install asphodel
+npm install @saluca/asphodel
 ```
 
 For Postgres support, also install the peer dependency:
@@ -29,7 +29,7 @@ npm install pg
 ### SQLite (default)
 
 ```ts
-import { Asphodel, SQLiteAdapter } from 'asphodel'
+import { Asphodel, SQLiteAdapter } from '@saluca/asphodel'
 
 const db = new Asphodel(new SQLiteAdapter())
 // or specify a path:
@@ -40,7 +40,7 @@ const db = new Asphodel(new SQLiteAdapter('/path/to/memory.db'))
 ### Postgres
 
 ```ts
-import { Asphodel, PostgresAdapter } from 'asphodel'
+import { Asphodel, PostgresAdapter } from '@saluca/asphodel'
 
 const db = new Asphodel(new PostgresAdapter('postgresql://user:pass@host/db'))
 // or via env: ASPHODEL_DATABASE_URL
@@ -145,7 +145,7 @@ No hashes. No UUIDs. No proprietary formats.
 Implement the `Adapter` interface to bring your own storage backend:
 
 ```ts
-import type { Adapter, Memory } from 'asphodel'
+import type { Adapter, Memory } from '@saluca/asphodel'
 
 class MyAdapter implements Adapter {
   async init(): Promise<void> { ... }

@@ -1,5 +1,5 @@
 {
-  "name": "asphodel",
+  "name": "@saluca/asphodel",
   "version": "0.1.0",
   "description": "Simple local-first memory storage — integer IDs, topic-word index, SQLite + Postgres",
   "main": "dist/index.js",
