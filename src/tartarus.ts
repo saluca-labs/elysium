@@ -80,7 +80,7 @@ interface MemoryStats {
 export class AsphodelStore {
   constructor(private readonly db: Asphodel) {}
 
-  async store(content: string, opts: StoreOptions): Promise<StoreResult> {
+  async store(content: string, opts: StoreOptions = {}): Promise<StoreResult> {
     const topics = opts.topic ? [opts.topic] : undefined
     const memory = await this.db.remember(content, { topics })
     return {
@@ -92,7 +92,7 @@ export class AsphodelStore {
     }
   }
 
-  async recall(query: string, opts: RecallOptions): Promise<RecallResult[]> {
+  async recall(query: string, opts: RecallOptions = {}): Promise<RecallResult[]> {
     const limit = opts.limit ?? 5
 
     // Try topic recall first, fall back to full-text search
