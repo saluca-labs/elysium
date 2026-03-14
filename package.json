@@ -1,7 +1,7 @@
 {
   "name": "@saluca/asphodel",
-  "version": "0.1.0",
-  "description": "Simple local-first memory storage — integer IDs, topic-word index, SQLite + Postgres",
+  "version": "0.2.0",
+  "description": "Local-first agent memory — topic index, FTS, hybrid vector search (BM25 + embeddings + RRF), temporal decay",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -20,18 +20,30 @@
     "sqlite",
     "postgres",
     "mcp",
+    "vector",
+    "hybrid-search",
+    "rrf",
+    "embeddings",
     "asphodel",
     "elysium"
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "better-sqlite3": "^9.6.0"
+    "better-sqlite3": "^12.8.0"
   },
   "peerDependencies": {
-    "pg": "^8.0.0"
+    "node-llama-cpp": "^3.0.0",
+    "pg": "^8.0.0",
+    "sqlite-vec": "^0.1.0"
   },
   "peerDependenciesMeta": {
+    "node-llama-cpp": {
+      "optional": true
+    },
     "pg": {
+      "optional": true
+    },
+    "sqlite-vec": {
       "optional": true
     }
   },

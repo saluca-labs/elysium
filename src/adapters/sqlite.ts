@@ -2,16 +2,38 @@ import Database from 'better-sqlite3'
 import { mkdirSync } from 'fs'
 import { dirname, join } from 'path'
 import { homedir } from 'os'
-import type { Adapter, Memory } from '../types.js'
+import type { Adapter, Memory, ScoredMemory } from '../types.js'
+import { l2ToCosineSimilarity } from '../hybrid/dedup.js'
+
+export interface SQLiteAdapterOptions {
+  /** Path to the SQLite database file. Defaults to ASPHODEL_DB env or ~/.asphodel/memory.db */
+  dbPath?: string
+  /** Max memories per topic before oldest is evicted. Default: 10 */
+  maxMemoriesPerTopic?: number
+  /**
+   * Embedding dimensions for vector search.
+   * Required to enable the memories_vec table (sqlite-vec extension).
+   * Must match the dimensions produced by your HybridProvider.
+   * Default: 0 (vector search disabled).
+   */
+  vectorDims?: number
+}
 
 export class SQLiteAdapter implements Adapter {
   private db!: Database.Database
   private readonly path: string
   private readonly maxMemoriesPerTopic: number
+  private readonly vectorDims: number
+  private vecLoaded = false
 
-  constructor(dbPath?: string, maxMemoriesPerTopic = 10) {
-    this.path = dbPath ?? process.env.ASPHODEL_DB ?? join(homedir(), '.asphodel', 'memory.db')
-    this.maxMemoriesPerTopic = maxMemoriesPerTopic
+  constructor(opts: SQLiteAdapterOptions | string = {}) {
+    // Accept legacy string argument for backward compat
+    if (typeof opts === 'string') {
+      opts = { dbPath: opts }
+    }
+    this.path = opts.dbPath ?? process.env.ASPHODEL_DB ?? join(homedir(), '.asphodel', 'memory.db')
+    this.maxMemoriesPerTopic = opts.maxMemoriesPerTopic ?? 10
+    this.vectorDims = opts.vectorDims ?? 0
   }
 
   async init(): Promise<void> {
@@ -23,6 +45,7 @@ export class SQLiteAdapter implements Adapter {
   }
 
   private migrate(): void {
+    // Migration 001: core schema
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS memories (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,6 +77,45 @@ export class SQLiteAdapter implements Adapter {
         VALUES ('delete', old.id, old.content);
       END;
     `)
+
+    // Migration 002: recall_count for access-frequency boost
+    const cols = this.db
+      .prepare(`PRAGMA table_info(memories)`)
+      .all() as Array<{ name: string }>
+    if (!cols.some(c => c.name === 'recall_count')) {
+      this.db.exec(
+        `ALTER TABLE memories ADD COLUMN recall_count INTEGER NOT NULL DEFAULT 0`
+      )
+    }
+
+    // Migration 003: vector search via sqlite-vec (optional — skipped if not installed
+    // or vectorDims is 0)
+    if (this.vectorDims > 0) {
+      this.vecLoaded = this.tryLoadSqliteVec()
+      if (this.vecLoaded) {
+        this.db.exec(`
+          CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(
+            memory_id INTEGER PRIMARY KEY,
+            embedding float[${this.vectorDims}]
+          );
+        `)
+      }
+    }
+  }
+
+  /**
+   * Attempt to load the sqlite-vec extension.
+   * Returns true if loaded successfully, false if not installed.
+   */
+  private tryLoadSqliteVec(): boolean {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const sqliteVec = require('sqlite-vec') as { load: (db: Database.Database) => void }
+      sqliteVec.load(this.db)
+      return true
+    } catch {
+      return false
+    }
   }
 
   async insert(content: string, topics: string[]): Promise<number> {
@@ -95,33 +157,103 @@ export class SQLiteAdapter implements Adapter {
 
   async recall(topic: string, limit: number): Promise<Memory[]> {
     const rows = this.db.prepare(`
-      SELECT m.id, m.content, m.topics, m.created_at
+      SELECT m.id, m.content, m.topics, m.created_at, m.recall_count
       FROM memories m
       JOIN topic_index ti ON ti.memory_id = m.id
       WHERE ti.word = ?
       ORDER BY m.id DESC
       LIMIT ?
     `).all(topic.toLowerCase().trim(), limit) as Array<{
-      id: number; content: string; topics: string; created_at: string
+      id: number; content: string; topics: string; created_at: string; recall_count: number
     }>
 
-    return rows.map(r => ({ ...r, topics: JSON.parse(r.topics) }))
+    const memories = rows.map(r => ({ ...r, topics: JSON.parse(r.topics) as string[] }))
+    if (memories.length > 0) {
+      this.bumpRecallCountSync(memories.map(m => m.id))
+    }
+    return memories
   }
 
   async search(query: string, limit: number): Promise<Memory[]> {
     const rows = this.db.prepare(`
-      SELECT m.id, m.content, m.topics, m.created_at
+      SELECT m.id, m.content, m.topics, m.created_at, m.recall_count
       FROM memories_fts f
       JOIN memories m ON m.id = f.rowid
       WHERE memories_fts MATCH ?
       ORDER BY rank
       LIMIT ?
     `).all(query, limit) as Array<{
-      id: number; content: string; topics: string; created_at: string
+      id: number; content: string; topics: string; created_at: string; recall_count: number
     }>
 
-    return rows.map(r => ({ ...r, topics: JSON.parse(r.topics) }))
+    const memories = rows.map(r => ({ ...r, topics: JSON.parse(r.topics) as string[] }))
+    if (memories.length > 0) {
+      this.bumpRecallCountSync(memories.map(m => m.id))
+    }
+    return memories
   }
+
+  // ── Hybrid search extensions ───────────────────────────────────────────────
+
+  /** Store an L2-normalized float embedding alongside a memory. */
+  async vectorInsert(id: number, embedding: number[]): Promise<void> {
+    if (!this.vecLoaded) return
+    const buf = Buffer.from(new Float32Array(embedding).buffer)
+    this.db
+      .prepare(`INSERT OR REPLACE INTO memories_vec (memory_id, embedding) VALUES (?, ?)`)
+      .run(id, buf)
+  }
+
+  /**
+   * K-nearest-neighbor search using sqlite-vec.
+   * Embeddings must be L2-normalized before calling; scores are approximate
+   * cosine similarities derived from L2 distance.
+   */
+  async vectorSearch(embedding: number[], limit: number): Promise<ScoredMemory[]> {
+    if (!this.vecLoaded) return []
+
+    const buf = Buffer.from(new Float32Array(embedding).buffer)
+
+    const rows = this.db.prepare(`
+      SELECT m.id, m.content, m.topics, m.created_at, m.recall_count, v.distance
+      FROM memories_vec v
+      JOIN memories m ON m.id = v.memory_id
+      WHERE v.embedding MATCH ?
+        AND k = ?
+      ORDER BY v.distance
+    `).all(buf, limit) as Array<{
+      id: number
+      content: string
+      topics: string
+      created_at: string
+      recall_count: number
+      distance: number
+    }>
+
+    return rows.map(r => ({
+      id:           r.id,
+      content:      r.content,
+      topics:       JSON.parse(r.topics) as string[],
+      created_at:   r.created_at,
+      recall_count: r.recall_count,
+      score:        l2ToCosineSimilarity(r.distance),
+    }))
+  }
+
+  /** Increment recall_count for a list of memory IDs. */
+  async bumpRecallCount(ids: number[]): Promise<void> {
+    this.bumpRecallCountSync(ids)
+  }
+
+  private bumpRecallCountSync(ids: number[]): void {
+    const stmt = this.db.prepare(`UPDATE memories SET recall_count = recall_count + 1 WHERE id = ?`)
+    const updateAll = this.db.transaction((ids: number[]) => {
+      for (const id of ids) stmt.run(id)
+    })
+    updateAll(ids)
+  }
+
+  // ── Standard operations ────────────────────────────────────────────────────
 
   async forget(id: number): Promise<boolean> {
     const { changes } = this.db
@@ -132,15 +264,15 @@ export class SQLiteAdapter implements Adapter {
 
   async list(limit: number, offset: number): Promise<Memory[]> {
     const rows = this.db.prepare(`
-      SELECT id, content, topics, created_at
+      SELECT id, content, topics, created_at, recall_count
       FROM memories
       ORDER BY id DESC
       LIMIT ? OFFSET ?
     `).all(limit, offset) as Array<{
-      id: number; content: string; topics: string; created_at: string
+      id: number; content: string; topics: string; created_at: string; recall_count: number
     }>
 
-    return rows.map(r => ({ ...r, topics: JSON.parse(r.topics) }))
+    return rows.map(r => ({ ...r, topics: JSON.parse(r.topics) as string[] }))
   }
 
   async close(): Promise<void> {
