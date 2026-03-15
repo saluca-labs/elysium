@@ -25,7 +25,13 @@ export interface HybridProvider {
   /** Embed text into a float vector. */
   embed(text: string): Promise<number[]>
   /**
-   * Optional LLM reranker. Re-scores top candidates after RRF fusion.
+   * Generate a hypothetical memory string for HyDE (Hypothetical Document Embeddings).
+   * The returned text is embedded and used as an additional search signal.
+   * If not provided, hyde: true in HybridSearchOptions is a no-op.
+   */
+  generate?(query: string): Promise<string>
+  /**
+   * Re-score top candidates after RRF fusion using a cross-encoder ranking model.
    * If not provided, rerank: true in HybridSearchOptions is a no-op.
    */
   rerank?(query: string, memories: ScoredMemory[]): Promise<ScoredMemory[]>
@@ -104,8 +110,15 @@ export interface HybridSearchOptions {
    */
   decay?: boolean
   /**
+   * Generate a hypothetical memory via the provider's generate() method, embed it,
+   * and add it as a third signal in RRF fusion (weight: 0.40).
+   * Requires HybridProvider to implement generate().
+   * Default: false.
+   */
+  hyde?: boolean
+  /**
    * Run an LLM reranker pass on the top candidates after RRF fusion.
-   * Requires the HybridProvider to implement rerank().
+   * Requires HybridProvider to implement rerank().
    * Default: false.
    */
   rerank?: boolean

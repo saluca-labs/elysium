@@ -93,9 +93,11 @@ export class SQLiteAdapter implements Adapter {
     if (this.vectorDims > 0) {
       this.vecLoaded = this.tryLoadSqliteVec()
       if (this.vecLoaded) {
+        // vec0 uses implicit rowid as the memory ID.
+        // We insert with BigInt(memory_id) as rowid so the join
+        // "memories m ON m.id = CAST(v.rowid AS INTEGER)" works correctly.
         this.db.exec(`
           CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(
-            memory_id INTEGER PRIMARY KEY,
             embedding float[${this.vectorDims}]
           );
         `)
@@ -195,33 +197,37 @@ export class SQLiteAdapter implements Adapter {
 
   // ── Hybrid search extensions ───────────────────────────────────────────────
 
-  /** Store an L2-normalized float embedding alongside a memory. */
+  /**
+   * Store an L2-normalized float embedding alongside a memory.
+   * Uses sqlite-vec's vec0 virtual table with rowid = memory_id.
+   *
+   * Note: sqlite-vec alpha (0.1.x) requires the rowid to be passed as BigInt —
+   * regular JS numbers are sent as float64 by better-sqlite3 and rejected.
+   * Embeddings are serialized as JSON arrays and deserialized by vec_f32().
+   */
   async vectorInsert(id: number, embedding: number[]): Promise<void> {
     if (!this.vecLoaded) return
-    const buf = Buffer.from(new Float32Array(embedding).buffer)
     this.db
-      .prepare(`INSERT OR REPLACE INTO memories_vec (memory_id, embedding) VALUES (?, ?)`)
-      .run(id, buf)
+      .prepare(`INSERT OR REPLACE INTO memories_vec(rowid, embedding) VALUES (?, vec_f32(?))`)
+      .run(BigInt(id), JSON.stringify(embedding))
   }
 
   /**
    * K-nearest-neighbor search using sqlite-vec.
    * Embeddings must be L2-normalized before calling; scores are approximate
-   * cosine similarities derived from L2 distance.
+   * cosine similarities derived from L2 distance (1 - d²/2 on unit vectors).
    */
   async vectorSearch(embedding: number[], limit: number): Promise<ScoredMemory[]> {
     if (!this.vecLoaded) return []
 
-    const buf = Buffer.from(new Float32Array(embedding).buffer)
-
     const rows = this.db.prepare(`
       SELECT m.id, m.content, m.topics, m.created_at, m.recall_count, v.distance
       FROM memories_vec v
-      JOIN memories m ON m.id = v.memory_id
-      WHERE v.embedding MATCH ?
+      JOIN memories m ON m.id = CAST(v.rowid AS INTEGER)
+      WHERE v.embedding MATCH vec_f32(?)
         AND k = ?
       ORDER BY v.distance
-    `).all(buf, limit) as Array<{
+    `).all(JSON.stringify(embedding), limit) as Array<{
       id: number
       content: string
       topics: string

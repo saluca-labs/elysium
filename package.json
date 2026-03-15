@@ -1,6 +1,6 @@
 {
   "name": "@saluca/asphodel",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Local-first agent memory — topic index, FTS, hybrid vector search (BM25 + embeddings + RRF), temporal decay",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -51,6 +51,7 @@
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
+    "sqlite-vec": "^0.1.7-alpha.2",
     "typescript": "^5.6.0"
   },
   "engines": {

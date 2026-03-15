@@ -95,8 +95,9 @@ export class Asphodel {
     query: string,
     options: HybridSearchOptions = {},
   ): Promise<ScoredMemory[]> {
-    const limit   = options.limit ?? DEFAULT_SEARCH_LIMIT
-    const decay   = options.decay ?? true
+    const limit    = options.limit ?? DEFAULT_SEARCH_LIMIT
+    const decay    = options.decay ?? true
+    const doHyde   = options.hyde   ?? false
     const doRerank = options.rerank ?? false
 
     // ── Fallback: BM25 only ───────────────────────────────────────────────
@@ -112,6 +113,7 @@ export class Asphodel {
     // ── Phase 1: Candidate generation (parallel) ──────────────────────────
     const candidateLimit = Math.max(limit * 3, 20)
 
+    // Phase 1a: BM25 + query embedding (parallel)
     const [bm25Results, queryEmbedding] = await Promise.all([
       this.adapter.search(query, candidateLimit),
       this.hybrid.embed(query).then(normalizeEmbedding),
@@ -119,11 +121,26 @@ export class Asphodel {
 
     const vecResults = await this.adapter.vectorSearch(queryEmbedding, candidateLimit)
 
+    // Phase 1b: HyDE — generate a hypothetical memory, embed it, search with it
+    // Runs after the base searches so it doesn't block them.
+    let hydeResults: ScoredMemory[] = []
+    if (doHyde && this.hybrid.generate) {
+      try {
+        const hydeText      = await this.hybrid.generate(query)
+        const hydeEmbedding = normalizeEmbedding(await this.hybrid.embed(hydeText))
+        hydeResults         = await this.adapter.vectorSearch(hydeEmbedding, candidateLimit)
+      } catch {
+        // HyDE generation failure is non-fatal — proceed without it
+      }
+    }
+
     // ── Phase 2: RRF fusion ───────────────────────────────────────────────
-    const fused = reciprocalRankFusion([
+    const rrfLists = [
       { results: bm25Results, weight: 0.75 },
       { results: vecResults,  weight: 0.60 },
-    ])
+      ...(hydeResults.length > 0 ? [{ results: hydeResults, weight: 0.40 }] : []),
+    ]
+    const fused = reciprocalRankFusion(rrfLists)
 
     // ── Phase 3: Hydrate fused IDs with full memory data ─────────────────
     const byId = new Map<number, Memory & { recall_count: number }>()
