@@ -1,5 +1,11 @@
 # Asphodel
 
+> **This project has moved to [saluca-labs](https://github.com/saluca-labs).** This repo is now maintained at [`saluca-labs/elysium`](https://github.com/saluca-labs/elysium). Please update your remotes:
+> ```bash
+> git remote set-url origin https://github.com/saluca-labs/elysium.git
+> ```
+
+
 Simple local-first memory storage for AI agents. Integer IDs, topic-word index, SQLite and Postgres support.
 
 ```ts
