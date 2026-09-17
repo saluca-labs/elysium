@@ -2,7 +2,7 @@
 
 Simple local-first memory storage for AI agents. Integer IDs, topic-word index, SQLite and Postgres support.
 
-> **Not published from this repo.** The npm package `@saluca/asphodel` is retired (deprecated on npm).
+> **Not published from this repo.** The npm package `@saluca/asphodel` is retired: npm was retired as a Saluca channel on 2026-09-16 and the name no longer resolves on the npm registry.
 > This repository is marked `"private": true` so it can never be published to that name.
 > The published `@saluca/asphodel@0.1.0` was built from commit
 > [`a83211e`](https://github.com/saluca-labs/elysium/commit/a83211e) of this repo.
@@ -22,7 +22,7 @@ const results = await db.recall("preferences")
 
 ## Install
 
-This package is not published from this repo (see the note above). Build it from source:
+This package is not available from npm (see the note above). Build it from source:
 
 ```bash
 git clone https://github.com/saluca-labs/elysium.git
@@ -30,6 +30,8 @@ cd elysium
 npm ci
 npm run build
 ```
+
+To use the build from another local project, depend on the directory, for example `npm install ../elysium`, then import it as `@saluca/asphodel` (the name in this repo's `package.json`).
 
 For Postgres support, also install the peer dependency:
 
@@ -175,6 +177,6 @@ class MyAdapter implements Adapter {
 
 Functional Source License 1.1, Apache 2.0 Future License (`FSL-1.1-ALv2`), see [LICENSE](./LICENSE). Each version becomes available under the Apache License 2.0 on the second anniversary of its release. Copyright Saluca LLC.
 
-The `@saluca/asphodel` releases already on npm (0.1.0 and 0.4.0) were published with an `Apache-2.0` licence field, and those releases remain available under Apache 2.0.
+The `@saluca/asphodel` releases that were on npm (0.1.0 and 0.4.0) were published with an `Apache-2.0` licence field, and copies of those releases remain licensed under Apache 2.0. The name was removed from the npm registry on 2026-09-16.
 
 Enterprise features (hash-chained audit trails, multi-tenant isolation, compliance controls) are available at [asphodel.ai](https://asphodel.ai).
