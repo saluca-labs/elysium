@@ -1,11 +1,5 @@
 # Asphodel
 
-> **This project has moved to [saluca-labs](https://github.com/saluca-labs).** This repo is now maintained at [`saluca-labs/elysium`](https://github.com/saluca-labs/elysium). Please update your remotes:
-> ```bash
-> git remote set-url origin https://github.com/saluca-labs/elysium.git
-> ```
-
-
 Simple local-first memory storage for AI agents. Integer IDs, topic-word index, SQLite and Postgres support.
 
 ```ts
@@ -166,6 +160,8 @@ class MyAdapter implements Adapter {
 
 ## License
 
-Apache 2.0 — see [LICENSE](./LICENSE).
+Functional Source License 1.1, Apache 2.0 Future License (`FSL-1.1-ALv2`), see [LICENSE](./LICENSE). Each version becomes available under the Apache License 2.0 on the second anniversary of its release. Copyright Saluca LLC.
+
+The `@saluca/asphodel` releases already on npm (0.1.0 and 0.4.0) were published with an `Apache-2.0` licence field, and those releases remain available under Apache 2.0.
 
 Enterprise features (hash-chained audit trails, multi-tenant isolation, compliance controls) are available at [asphodel.ai](https://asphodel.ai).
