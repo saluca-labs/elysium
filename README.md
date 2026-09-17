@@ -2,6 +2,14 @@
 
 Simple local-first memory storage for AI agents. Integer IDs, topic-word index, SQLite and Postgres support.
 
+> **Not published from this repo.** The npm package `@saluca/asphodel` is retired (deprecated on npm).
+> This repository is marked `"private": true` so it can never be published to that name.
+> The published `@saluca/asphodel@0.1.0` was built from commit
+> [`a83211e`](https://github.com/saluca-labs/elysium/commit/a83211e) of this repo.
+> The published `0.4.0` was built from a different repository, not from this one.
+> The `0.3.0` in `package.json` describes this code and was never published.
+> The open-source memory MCP server is [tartarus-mcp](https://github.com/saluca-labs/tartarus-mcp).
+
 ```ts
 import { Asphodel, SQLiteAdapter } from '@saluca/asphodel'
 
@@ -14,8 +22,13 @@ const results = await db.recall("preferences")
 
 ## Install
 
+This package is not published from this repo (see the note above). Build it from source:
+
 ```bash
-npm install @saluca/asphodel
+git clone https://github.com/saluca-labs/elysium.git
+cd elysium
+npm ci
+npm run build
 ```
 
 For Postgres support, also install the peer dependency:
