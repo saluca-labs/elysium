@@ -1,7 +1,8 @@
 {
   "name": "@saluca/asphodel",
   "version": "0.3.0",
-  "description": "Local-first agent memory — topic index, FTS, hybrid vector search (BM25 + embeddings + RRF), temporal decay",
+  "private": true,
+  "description": "Local-first agent memory: topic index, FTS, hybrid vector search (BM25 + embeddings + RRF), temporal decay",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -67,8 +68,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

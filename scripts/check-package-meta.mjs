@@ -36,6 +36,17 @@ if (existsSync("src")) {
     }
   }
 }
+// The @saluca/asphodel npm line is retired and its published versions are
+// Apache-2.0. This tree is FSL-1.1-ALv2, so it must never be publishable.
+if (pkg.private !== true) {
+  problems.push(`package.json private is ${JSON.stringify(pkg.private)}, expected true (this repo must never publish to the retired @saluca/asphodel npm line)`);
+}
+if (pkg.publishConfig) {
+  problems.push("package.json publishConfig is present; this repo is not published");
+}
+if (!/`@saluca\/asphodel` is retired/.test(readme) || !/a83211e/.test(readme)) {
+  problems.push("README must say the npm package @saluca/asphodel is retired and that 0.1.0 was built from a83211e");
+}
 if (/^Apache 2\.0/m.test(readme)) {
   problems.push("README licence section says Apache 2.0; the repo LICENSE is FSL-1.1-ALv2");
 }
@@ -44,4 +55,4 @@ if (problems.length) {
   for (const p of problems) console.error(`FAIL: ${p}`);
   process.exit(1);
 }
-console.log(`OK: ${pkg.name}@${pkg.version} license=${pkg.license} repository=${repoUrl}`);
+console.log(`OK: ${pkg.name}@${pkg.version} private=${pkg.private} license=${pkg.license} repository=${repoUrl}`);
