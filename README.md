@@ -20,6 +20,38 @@ await db.remember("user prefers dark mode", { topics: ["preferences", "ui"] })
 const results = await db.recall("preferences")
 ```
 
+## How it works
+
+Every call goes through `Asphodel` in `src/store.ts`, which owns topic extraction, deduplication and ranking, and hands storage to an adapter. The diagram is the two paths that do more than one adapter call: `remember()` and `hybridSearch()`. `recall`, `search`, `forget` and `list` are each a single adapter call.
+
+```mermaid
+flowchart TD
+  subgraph rememberPath["remember path"]
+    r1["remember(content, options)<br/>topics = options.topics, cut to maxTopicsPerMemory,<br/>or extractTopics(): extractTopicsLocal() in topic.ts"] --> r2{"hybrid provider set<br/>and not skipDedup?"}
+    r2 -- "no" --> r3["adapter.insert(content, topics)"]
+    r2 -- "yes" --> r4["hybrid.embed(content), normalizeEmbedding()"]
+    r4 --> r5{"adapter.vectorSearch(embedding, 1)<br/>score >= DEDUP_THRESHOLD 0.95?"}
+    r5 -- "yes" --> r6["return the existing memory, isDuplicate: true"]
+    r5 -- "no" --> r7["adapter.insert(), then adapter.vectorInsert(id, embedding)"]
+  end
+  subgraph searchPath["hybridSearch path"]
+    h1{"hybridSearch(query, options)<br/>hybrid provider set and<br/>adapter has vectorSearch?"}
+    h1 -- "no" --> h2["adapter.search(query, limit)<br/>score = 1 / (60 + rank + 1)"]
+    h1 -- "yes" --> h3["adapter.search() and hybrid.embed(query)<br/>then adapter.vectorSearch()"]
+    h3 -- "hyde: true and hybrid.generate" --> h4["generate(), embed(), vectorSearch()"]
+    h3 --> h5["reciprocalRankFusion() in rrf.ts<br/>weights BM25 0.75, vector 0.60, HyDE 0.40"]
+    h4 --> h5
+    h5 -- "decay: true, the default" --> h6["score x scoreModifier(created_at, recall_count)<br/>decay.ts"]
+    h5 -- "decay: false" --> h7
+    h6 --> h7{"rerank: true and hybrid.rerank?"}
+    h7 -- "yes" --> h8["hybrid.rerank(query, top 40)"]
+    h7 -- "no" --> h9["top limit, then adapter.bumpRecallCount()"]
+    h8 --> h9
+  end
+```
+
+Three consequences worth knowing, all from `src/store.ts`: without a hybrid provider there is no deduplication at all, not even of identical content; `skipDedup: true` skips the whole hybrid branch, so that memory gets no embedding and is never found by vector search (the `RememberOptions` comment says it skips only the dedup check); and `recall_count`, which feeds the access boost, is only incremented by `hybridSearch()` on the hybrid branch, never by `recall` or `search`. `PostgresAdapter` has no `vectorSearch`, so on Postgres `hybridSearch()` always takes the full-text branch.
+
 ## Status
 
 Source-available library, version 0.3.0 in `package.json`, not published anywhere. What works today: the SQLite adapter (topic index, FTS5 full-text search, optional sqlite-vec vectors), the `Asphodel` API below, and `hybridSearch`, which falls back to full-text search when no embedding provider is set. CI runs the 23 SQLite tests in `tests/asphodel.test.ts`. The Postgres adapter, `LocalHybridProvider` (local GGUF models through `node-llama-cpp`) and `AsphodelStore` have no tests in this repo and were not run for this README.
@@ -239,15 +271,51 @@ class MyAdapter implements Adapter {
 - `src/adapters/postgres.ts`: Postgres through `pg` (optional peer).
 - `src/topic.ts`: the built-in stopword topic extractor.
 - `src/hybrid/`: reciprocal rank fusion (`rrf.ts`), temporal decay (`decay.ts`), embedding normalisation and duplicate threshold (`dedup.ts`), and `LocalHybridProvider` (`local.ts`), which embeds, generates HyDE queries and reranks with local GGUF models through `node-llama-cpp`.
-- `src/tartarus.ts`: `AsphodelStore`, an adapter from `Asphodel` to a store/recall/forget/stats interface with string ids, added as a Tartarus MCP adapter in commit `328a238`. The current tartarus-mcp does not use it; it vendors its own copy of the core.
+- `src/tartarus.ts`: `AsphodelStore`, an adapter from `Asphodel` to a store/recall/forget/stats interface with string ids, added as a Tartarus MCP adapter in commit `328a238`. The current tartarus-mcp does not use it; it vendors its own copy of the core. Its doc comment shows `import { createServer } from 'tartarus-mcp'` and `from 'asphodel'`; neither import resolves today (tartarus-mcp exports no `createServer`, and the package here is named `@saluca/asphodel`).
 
 ```mermaid
 flowchart LR
-  API[Asphodel<br/>src/store.ts] --> AD{Adapter}
-  AD --> SQ[SQLiteAdapter<br/>FTS5, sqlite-vec]
-  AD --> PG[PostgresAdapter]
-  API -. optional .-> HP[HybridProvider<br/>e.g. LocalHybridProvider]
-```
+  subgraph pkg["In the package, src/"]
+    api["Asphodel<br/>src/store.ts"]
+    topic["extractTopicsLocal()<br/>src/topic.ts"]
+    hyb["rrf.ts, decay.ts, dedup.ts<br/>src/hybrid/"]
+    sqlite["SQLiteAdapter<br/>src/adapters/sqlite.ts"]
+    pga["PostgresAdapter<br/>src/adapters/postgres.ts"]
+    local["LocalHybridProvider<br/>src/hybrid/local.ts"]
+    wrap["AsphodelStore<br/>src/tartarus.ts"]
+  end
+  subgraph deps["npm packages"]
+    bsq["better-sqlite3<br/>the one dependency"]
+    vec["sqlite-vec, optional peer<br/>require() when vectorDims > 0"]
+    pg["pg, optional peer<br/>import() in init()"]
+    llama["node-llama-cpp, optional peer<br/>require() in init()"]
+  end
+  subgraph yours["Supplied by you"]
+    db[("SQLite file, ASPHODEL_DB<br/>or Postgres, ASPHODEL_DATABASE_URL")]
+    gguf[("GGUF model files")]
+  end
+  api --> topic
+  api --> hyb
+  api -- "Adapter interface, src/types.ts" --> sqlite
+  api -- "Adapter interface" --> pga
+  api -. "HybridProvider interface, config.hybrid" .-> local
+  wrap -- "wraps an Asphodel instance" --> api
+  sqlite --> bsq
+  sqlite --> vec
+  pga --> pg
+  local --> llama
+  bsq --> db
+  pg --> db
+  llama --> gguf
+```### In this repo and not in this repo
+
+| Layer | In this repo | Licence | Where it lives |
+|---|---|---|---|
+| Asphodel library 0.3.0: API, SQLite and Postgres adapters, hybrid ranking, `LocalHybridProvider` | yes | FSL-1.1-ALv2 | `src/` |
+| The `@saluca/asphodel` 0.4.0 line, vendored into an MCP server | no | Apache-2.0 | [saluca-labs/tartarus-mcp](https://github.com/saluca-labs/tartarus-mcp), `src/vendor/asphodel/` |
+| An MCP server, CLI or HTTP API | no | - | tartarus-mcp is the MCP server; this repo is a library only |
+| Embedding and rerank models | no | their own | GGUF files you download and pass to `LocalHybridProvider` |
+| Hash-chained audit, multi-tenant isolation, compliance | no | not open source | [asphodel.ai](https://asphodel.ai) |
 
 ## Citation
 
