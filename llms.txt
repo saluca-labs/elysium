@@ -1,0 +1,25 @@
+# elysium
+
+> Source of Asphodel (`@saluca/asphodel` 0.3.0): a TypeScript library for local-first AI agent memory with integer ids, a topic-word index, full-text search and optional hybrid vector search, on SQLite or Postgres. FSL-1.1-ALv2.
+
+Facts agents often get wrong: the repository is named elysium but the package inside is `@saluca/asphodel`. It is not on npm (the name was removed on 2026-09-16, and the 0.4.0 that was once published came from a different repository); build from source. It is a library, not a server or CLI. `maxMemoriesPerTopic` is an adapter option, not an `Asphodel` option. CommonJS output in dist/, Node.js 18 or later, native better-sqlite3 binding required.
+
+## Docs
+
+- [README](https://github.com/saluca-labs/elysium/blob/master/README.md): install, quickstart, API, schema, correction notes
+- [AGENTS.md](https://github.com/saluca-labs/elysium/blob/master/AGENTS.md): build and test commands for agents changing this repo
+
+## Code
+
+- [src/store.ts](https://github.com/saluca-labs/elysium/blob/master/src/store.ts): the Asphodel API (remember, recall, search, hybridSearch, forget, list)
+- [src/types.ts](https://github.com/saluca-labs/elysium/blob/master/src/types.ts): Adapter, HybridProvider and option types
+- [src/adapters/sqlite.ts](https://github.com/saluca-labs/elysium/blob/master/src/adapters/sqlite.ts): SQLite schema, FTS5 search, sqlite-vec vectors
+- [src/adapters/postgres.ts](https://github.com/saluca-labs/elysium/blob/master/src/adapters/postgres.ts): Postgres adapter
+- [src/hybrid/local.ts](https://github.com/saluca-labs/elysium/blob/master/src/hybrid/local.ts): LocalHybridProvider (node-llama-cpp embeddings, HyDE, rerank)
+- [examples/quickstart.mjs](https://github.com/saluca-labs/elysium/blob/master/examples/quickstart.mjs): runnable quickstart against the local build
+
+## Optional
+
+- [llms-full.txt](https://github.com/saluca-labs/elysium/blob/master/llms-full.txt): README and AGENTS.md in full
+- [LICENSE](https://github.com/saluca-labs/elysium/blob/master/LICENSE): Functional Source License 1.1, Apache 2.0 Future License
+- [tartarus-mcp](https://github.com/saluca-labs/tartarus-mcp): the MCP memory server that vendors an Apache-2.0 copy of the core
