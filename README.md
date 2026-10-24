@@ -1,3 +1,5 @@
+![elysium](docs/img/banner-2026-10-23.jpg)
+
 # elysium
 
 Asphodel (`@saluca/asphodel`): simple local-first memory storage for AI agents, as a TypeScript library. Integer IDs, topic-word index, SQLite and Postgres support.
