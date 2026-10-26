@@ -1,0 +1,53 @@
+{
+ "version": 2,
+ "written": "2026-10-22",
+ "rule": "debt may only shrink; see repo-merge-gate.md GATE-3",
+ "note": "ids are hashes of each finding; run `python -m gate run` to see them",
+ "entries": [
+  {
+   "check": "claims",
+   "id": "a59c86aa776f4a18c505",
+   "path": ""
+  },
+  {
+   "check": "docs",
+   "id": "b4d08d8b436c35746850",
+   "path": "README.md"
+  },
+  {
+   "check": "docs",
+   "id": "aafc68c653a507b6941e",
+   "path": "README.md"
+  },
+  {
+   "check": "docs",
+   "id": "bbb1f99b140392f1906f",
+   "path": "README.md"
+  },
+  {
+   "check": "docs",
+   "id": "6a102ada6b632910f355",
+   "path": "README.md"
+  },
+  {
+   "check": "docs",
+   "id": "7fcb8037f0cbaee52798",
+   "path": "README.md"
+  },
+  {
+   "check": "docs",
+   "id": "d1d18256ebd90ac25aa0",
+   "path": "README.md"
+  },
+  {
+   "check": "docs",
+   "id": "b79ed584daf8a632b453",
+   "path": ""
+  },
+  {
+   "check": "branch-protection",
+   "id": "f0fac6b41c6325ac9702",
+   "path": ""
+  }
+ ]
+}

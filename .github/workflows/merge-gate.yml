@@ -1,0 +1,22 @@
+# Merge gate via salucallc/ci-shared (pinned by commit SHA; the same SHA in gate-ref).
+# The standard: saluca-handoff KB/workflows/repo-merge-gate.md. Require 'gate / Merge gate all'.
+name: merge-gate
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    uses: salucallc/ci-shared/.github/workflows/merge-gate.yml@9d0ef76e3850b2c85d6b834d1b29317307ce211e
+    with:
+      gate-ref: 9d0ef76e3850b2c85d6b834d1b29317307ce211e
