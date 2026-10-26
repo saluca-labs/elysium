@@ -17,6 +17,6 @@ permissions:
 
 jobs:
   gate:
-    uses: salucallc/ci-shared/.github/workflows/merge-gate.yml@d99ce3a7cd91f035af33e0a2eb5221788942fb12
+    uses: salucallc/ci-shared/.github/workflows/merge-gate.yml@9d0ef76e3850b2c85d6b834d1b29317307ce211e
     with:
-      gate-ref: d99ce3a7cd91f035af33e0a2eb5221788942fb12
+      gate-ref: 9d0ef76e3850b2c85d6b834d1b29317307ce211e
